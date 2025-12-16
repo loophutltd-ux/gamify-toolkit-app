@@ -111,7 +111,7 @@
                  {% endif %}"
           onmouseover="this.style.transform='scale(1.05)'; this.style.boxShadow='0 4px 12px rgba(0,0,0,0.3)';"
           onmouseout="this.style.transform='scale(1)'; this.style.boxShadow='0 2px 8px rgba(0,0,0,0.2)';">
-          ⛶ Fullscreen
+          â›¶ Fullscreen
         </button>
       {% endif %}
 
@@ -137,7 +137,7 @@
                touch-action: manipulation;
                -webkit-tap-highlight-color: transparent;
                box-shadow: 0 4px 15px rgba(0,0,0,0.4);">
-        ✕
+        âœ•
       </button>
 
       <!-- Mobile Swipe Indicator - Shows swipe down hint -->
@@ -158,7 +158,7 @@
                z-index: 10002;
                pointer-events: none;
                animation: fadeOut 2s forwards 1s;">
-        <div style="font-size: 30px; margin-bottom: 10px;">↓</div>
+        <div style="font-size: 30px; margin-bottom: 10px;">â†“</div>
         Swipe down to exit
       </div>
     </div>
@@ -786,7 +786,7 @@
   // Update button text when fullscreen changes
   function updateButton() {
     if (isFullscreen()) {
-      btn.textContent = '⛶ Exit Fullscreen';
+      btn.textContent = 'â›¶ Exit Fullscreen';
       // Show mobile exit button when in fullscreen on mobile
       if (isMobile && mobileExitBtn) {
         mobileExitBtn.style.display = 'block';
@@ -803,7 +803,7 @@
       }
 
     } else {
-      btn.textContent = '⛶ Fullscreen';
+      btn.textContent = 'â›¶ Fullscreen';
       // Hide mobile exit button when not in fullscreen
       if (mobileExitBtn) {
         mobileExitBtn.style.display = 'none';
