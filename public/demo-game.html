@@ -1,0 +1,477 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <title>Simple WebGL Game Demo</title>
+    <style>
+        * {
+            box-sizing: border-box;
+            -webkit-tap-highlight-color: transparent;
+        }
+        
+        body {
+            margin: 0;
+            padding: 0;
+            overflow: hidden;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            font-family: 'Arial', sans-serif;
+            touch-action: manipulation;
+            /* Safe area insets for notched devices */
+            padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
+        }
+        
+        canvas {
+            display: block;
+            width: 100%;
+            height: 100vh;
+            height: 100dvh; /* Dynamic viewport height for mobile */
+            touch-action: none;
+        }
+        
+        #info {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            top: max(20px, env(safe-area-inset-top));
+            left: max(20px, env(safe-area-inset-left));
+            color: white;
+            font-size: 18px;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.5);
+            z-index: 100;
+            background: rgba(0,0,0,0.3);
+            padding: 15px;
+            border-radius: 10px;
+        }
+        
+        #score {
+            font-size: 24px;
+            font-weight: bold;
+            color: #ffd700;
+        }
+
+        /* Mobile exit button */
+        #mobileExitBtn {
+            display: none;
+            position: fixed;
+            top: 15px;
+            right: 15px;
+            top: max(15px, env(safe-area-inset-top));
+            right: max(15px, env(safe-area-inset-right));
+            width: 50px;
+            height: 50px;
+            background: rgba(0, 0, 0, 0.7);
+            color: #fff;
+            border: 2px solid rgba(255, 255, 255, 0.5);
+            border-radius: 50%;
+            font-size: 24px;
+            font-weight: bold;
+            cursor: pointer;
+            z-index: 10001;
+            touch-action: manipulation;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.4);
+        }
+
+        #mobileExitBtn:active {
+            transform: scale(0.9);
+            background: rgba(0, 0, 0, 0.9);
+        }
+
+        /* Fullscreen button for mobile */
+        #fullscreenBtn {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            bottom: max(20px, env(safe-area-inset-bottom));
+            right: max(20px, env(safe-area-inset-right));
+            padding: 12px 20px;
+            background: rgba(0, 0, 0, 0.7);
+            color: #fff;
+            border: 2px solid rgba(255, 255, 255, 0.5);
+            border-radius: 25px;
+            font-size: 16px;
+            font-weight: bold;
+            cursor: pointer;
+            z-index: 100;
+            touch-action: manipulation;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.4);
+        }
+
+        #fullscreenBtn:active {
+            transform: scale(0.95);
+        }
+
+        /* Swipe indicator */
+        #swipeIndicator {
+            display: none;
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: rgba(0, 0, 0, 0.8);
+            color: #fff;
+            padding: 20px 30px;
+            border-radius: 15px;
+            font-size: 16px;
+            text-align: center;
+            z-index: 10002;
+            pointer-events: none;
+            animation: fadeOut 2s forwards 1s;
+        }
+
+        @keyframes fadeOut {
+            from { opacity: 1; }
+            to { opacity: 0; visibility: hidden; }
+        }
+
+        @keyframes pulseGlow {
+            0%, 100% { box-shadow: 0 4px 15px rgba(0,0,0,0.4); }
+            50% { box-shadow: 0 4px 25px rgba(255,255,255,0.3); }
+        }
+
+        /* Portrait mode adjustments */
+        @media (orientation: portrait) {
+            #info {
+                font-size: 14px;
+                padding: 10px;
+            }
+            
+            #score {
+                font-size: 20px;
+            }
+        }
+
+        /* Small mobile screens */
+        @media (max-width: 480px) {
+            #info {
+                font-size: 12px;
+                padding: 8px;
+            }
+            
+            #info > div:last-child {
+                display: none; /* Hide keyboard hint on mobile */
+            }
+        }
+    </style>
+</head>
+<body>
+    <div id="info">
+        <div id="score">Score: 0</div>
+        <div>Click to collect the stars!</div>
+        <div style="font-size: 14px; margin-top: 5px;">Press F for fullscreen</div>
+    </div>
+    <button id="fullscreenBtn">⛶ Fullscreen</button>
+    <button id="mobileExitBtn">✕</button>
+    <div id="swipeIndicator">
+        <div style="font-size: 30px; margin-bottom: 10px;">↓</div>
+        Swipe down from top to exit
+    </div>
+    <canvas id="gameCanvas"></canvas>
+
+    <script>
+        // Simple WebGL Game Demo
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        const scoreElement = document.getElementById('score');
+
+        let width = window.innerWidth;
+        let height = window.innerHeight;
+        canvas.width = width;
+        canvas.height = height;
+
+        let score = 0;
+        let stars = [];
+        let particles = [];
+
+        class Star {
+            constructor() {
+                this.x = Math.random() * width;
+                this.y = Math.random() * height;
+                this.size = 20 + Math.random() * 20;
+                this.speed = 1 + Math.random() * 2;
+                this.rotation = Math.random() * Math.PI * 2;
+                this.rotationSpeed = (Math.random() - 0.5) * 0.1;
+                this.hue = Math.random() * 360;
+            }
+
+            update() {
+                this.rotation += this.rotationSpeed;
+                this.y += this.speed;
+                
+                if (this.y > height + this.size) {
+                    this.y = -this.size;
+                    this.x = Math.random() * width;
+                }
+            }
+
+            draw() {
+                ctx.save();
+                ctx.translate(this.x, this.y);
+                ctx.rotate(this.rotation);
+                
+                // Draw star
+                ctx.fillStyle = `hsl(${this.hue}, 100%, 60%)`;
+                ctx.shadowColor = `hsl(${this.hue}, 100%, 80%)`;
+                ctx.shadowBlur = 20;
+                
+                ctx.beginPath();
+                for (let i = 0; i < 5; i++) {
+                    const angle = (Math.PI * 2 * i) / 5 - Math.PI / 2;
+                    const x = Math.cos(angle) * this.size;
+                    const y = Math.sin(angle) * this.size;
+                    
+                    if (i === 0) {
+                        ctx.moveTo(x, y);
+                    } else {
+                        ctx.lineTo(x, y);
+                    }
+                    
+                    const innerAngle = angle + Math.PI / 5;
+                    const innerX = Math.cos(innerAngle) * (this.size * 0.5);
+                    const innerY = Math.sin(innerAngle) * (this.size * 0.5);
+                    ctx.lineTo(innerX, innerY);
+                }
+                ctx.closePath();
+                ctx.fill();
+                
+                ctx.restore();
+            }
+
+            isClicked(x, y) {
+                const dx = x - this.x;
+                const dy = y - this.y;
+                return Math.sqrt(dx * dx + dy * dy) < this.size;
+            }
+        }
+
+        class Particle {
+            constructor(x, y, hue) {
+                this.x = x;
+                this.y = y;
+                this.vx = (Math.random() - 0.5) * 5;
+                this.vy = (Math.random() - 0.5) * 5;
+                this.life = 1;
+                this.decay = 0.02;
+                this.size = 3 + Math.random() * 3;
+                this.hue = hue;
+            }
+
+            update() {
+                this.x += this.vx;
+                this.y += this.vy;
+                this.vy += 0.1; // gravity
+                this.life -= this.decay;
+            }
+
+            draw() {
+                ctx.fillStyle = `hsla(${this.hue}, 100%, 60%, ${this.life})`;
+                ctx.beginPath();
+                ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
+                ctx.fill();
+            }
+        }
+
+        // Initialize stars
+        for (let i = 0; i < 10; i++) {
+            stars.push(new Star());
+        }
+
+        // Handle click/touch
+        function handleClick(e) {
+            const rect = canvas.getBoundingClientRect();
+            const x = (e.clientX || e.touches?.[0]?.clientX) - rect.left;
+            const y = (e.clientY || e.touches?.[0]?.clientY) - rect.top;
+
+            const scaleX = width / rect.width;
+            const scaleY = height / rect.height;
+            const actualX = x * scaleX;
+            const actualY = y * scaleY;
+
+            for (let i = stars.length - 1; i >= 0; i--) {
+                if (stars[i].isClicked(actualX, actualY)) {
+                    // Create particles
+                    for (let j = 0; j < 20; j++) {
+                        particles.push(new Particle(stars[i].x, stars[i].y, stars[i].hue));
+                    }
+                    
+                    score += 10;
+                    scoreElement.textContent = `Score: ${score}`;
+                    stars.splice(i, 1);
+                    stars.push(new Star());
+                    break;
+                }
+            }
+        }
+
+        canvas.addEventListener('click', handleClick);
+        canvas.addEventListener('touchstart', handleClick);
+
+        // Handle resize
+        window.addEventListener('resize', () => {
+            width = window.innerWidth;
+            height = window.innerHeight;
+            canvas.width = width;
+            canvas.height = height;
+        });
+
+        // Keyboard shortcut for fullscreen
+        document.addEventListener('keydown', (e) => {
+            if (e.key.toLowerCase() === 'f') {
+                toggleFullscreen();
+            }
+        });
+
+        // Mobile & Fullscreen support
+        const fullscreenBtn = document.getElementById('fullscreenBtn');
+        const mobileExitBtn = document.getElementById('mobileExitBtn');
+        const swipeIndicator = document.getElementById('swipeIndicator');
+        
+        const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) || 
+                         (window.matchMedia && window.matchMedia('(hover: none) and (pointer: coarse)').matches);
+
+        let touchStartY = 0;
+        let touchStartX = 0;
+        const swipeThreshold = 100;
+        let swipeHintShown = false;
+
+        function isFullscreen() {
+            return !!(document.fullscreenElement || 
+                      document.webkitFullscreenElement || 
+                      document.mozFullScreenElement ||
+                      document.msFullscreenElement);
+        }
+
+        function enterFullscreen() {
+            const elem = document.documentElement;
+            if (elem.requestFullscreen) {
+                elem.requestFullscreen();
+            } else if (elem.webkitRequestFullscreen) {
+                elem.webkitRequestFullscreen();
+            } else if (elem.mozRequestFullScreen) {
+                elem.mozRequestFullScreen();
+            } else if (elem.msRequestFullscreen) {
+                elem.msRequestFullscreen();
+            }
+        }
+
+        function exitFullscreen() {
+            if (document.exitFullscreen) {
+                document.exitFullscreen();
+            } else if (document.webkitExitFullscreen) {
+                document.webkitExitFullscreen();
+            } else if (document.mozCancelFullScreen) {
+                document.mozCancelFullScreen();
+            } else if (document.msExitFullscreen) {
+                document.msExitFullscreen();
+            }
+        }
+
+        function toggleFullscreen() {
+            if (isFullscreen()) {
+                exitFullscreen();
+            } else {
+                enterFullscreen();
+            }
+        }
+
+        function updateFullscreenUI() {
+            if (isFullscreen()) {
+                fullscreenBtn.textContent = '⛶ Exit';
+                if (isMobile) {
+                    mobileExitBtn.style.display = 'block';
+                    mobileExitBtn.style.animation = 'pulseGlow 2s infinite';
+                    
+                    if (!swipeHintShown) {
+                        swipeIndicator.style.display = 'block';
+                        swipeHintShown = true;
+                        setTimeout(() => {
+                            swipeIndicator.style.display = 'none';
+                        }, 3000);
+                    }
+                }
+            } else {
+                fullscreenBtn.textContent = '⛶ Fullscreen';
+                mobileExitBtn.style.display = 'none';
+            }
+        }
+
+        fullscreenBtn.addEventListener('click', toggleFullscreen);
+        mobileExitBtn.addEventListener('click', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            exitFullscreen();
+        });
+
+        // Swipe down from top to exit fullscreen
+        if (isMobile) {
+            document.addEventListener('touchstart', (e) => {
+                if (isFullscreen() && e.touches.length === 1) {
+                    touchStartY = e.touches[0].clientY;
+                    touchStartX = e.touches[0].clientX;
+                }
+            }, { passive: true });
+
+            document.addEventListener('touchend', (e) => {
+                if (isFullscreen() && e.changedTouches.length === 1) {
+                    const touchEndY = e.changedTouches[0].clientY;
+                    const touchEndX = e.changedTouches[0].clientX;
+                    const deltaY = touchEndY - touchStartY;
+                    const deltaX = Math.abs(touchEndX - touchStartX);
+                    
+                    // Swipe down from top 20% of screen
+                    if (deltaY > swipeThreshold && deltaY > deltaX * 1.5) {
+                        if (touchStartY < window.innerHeight * 0.2) {
+                            exitFullscreen();
+                        }
+                    }
+                }
+            }, { passive: true });
+        }
+
+        // Handle orientation change
+        window.addEventListener('orientationchange', () => {
+            setTimeout(() => {
+                width = window.innerWidth;
+                height = window.innerHeight;
+                canvas.width = width;
+                canvas.height = height;
+            }, 100);
+        });
+
+        document.addEventListener('fullscreenchange', updateFullscreenUI);
+        document.addEventListener('webkitfullscreenchange', updateFullscreenUI);
+        document.addEventListener('mozfullscreenchange', updateFullscreenUI);
+        document.addEventListener('MSFullscreenChange', updateFullscreenUI);
+
+        // Game loop
+        function animate() {
+            // Clear with semi-transparent background for trail effect
+            ctx.fillStyle = 'rgba(102, 126, 234, 0.1)';
+            ctx.fillRect(0, 0, width, height);
+
+            // Update and draw stars
+            stars.forEach(star => {
+                star.update();
+                star.draw();
+            });
+
+            // Update and draw particles
+            for (let i = particles.length - 1; i >= 0; i--) {
+                particles[i].update();
+                particles[i].draw();
+                
+                if (particles[i].life <= 0) {
+                    particles.splice(i, 1);
+                }
+            }
+
+            requestAnimationFrame(animate);
+        }
+
+        animate();
+    </script>
+</body>
+</html>

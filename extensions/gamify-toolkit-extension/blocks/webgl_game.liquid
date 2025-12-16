@@ -1,0 +1,1400 @@
+{% comment %}
+  WebGL Game Block - Embeds a WebGL game with fullscreen support
+{% endcomment %}
+
+<div class="webgl-game-container" id="game-container-{{ block.id }}" style="max-width: 100%; margin: 0 auto;">
+  {% if block.settings.game_title %}
+    <h3 style="text-align: center; margin-bottom: 15px; color: {{ block.settings.title_color }};">
+      {{ block.settings.game_title }}
+    </h3>
+  {% endif %}
+
+  {% if block.settings.game_description %}
+    <p style="text-align: center; margin-bottom: 15px; color: {{ block.settings.description_color }};">
+      {{ block.settings.game_description }}
+    </p>
+  {% endif %}
+
+  <div class="game-wrapper" id="game-wrapper-{{ block.id }}" 
+       style="position: relative; 
+              width: 100%; 
+              max-width: {{ block.settings.max_width }}px; 
+              margin: 0 auto;
+              {% if block.settings.fill_type == 'color' %}
+                background-color: {{ block.settings.fill_color }};
+              {% elsif block.settings.fill_type == 'image' and block.settings.fill_image %}
+                background-image: url('{{ block.settings.fill_image | img_url: 'master' }}');
+                background-size: cover;
+                background-position: center;
+              {% endif %}
+              border-radius: {{ block.settings.border_radius }}px;
+              overflow: hidden;">
+    
+    <div style="width: 100%; 
+                padding-bottom: {{ block.settings.height | times: 100.0 | divided_by: block.settings.max_width }}%;
+                position: relative;
+                {% if block.settings.border_width > 0 %}
+                  border: {{ block.settings.border_width }}px solid {{ block.settings.border_color }};
+                {% endif %}
+                border-radius: {{ block.settings.border_radius }}px;">
+      
+      {% if block.settings.show_play_overlay %}
+        <div class="play-overlay" id="play-overlay-{{ block.id }}"
+             style="position: absolute;
+                    top: 0;
+                    left: 0;
+                    width: 100%;
+                    height: 100%;
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    cursor: pointer;
+                    z-index: 10;
+                    overflow: hidden;
+                    {% if block.settings.thumbnail_type == 'image' %}
+                      {% if block.settings.thumbnail_image %}
+                        background-image: url('{{ block.settings.thumbnail_image | img_url: 'master' }}');
+                        background-size: cover;
+                        background-position: center;
+                      {% elsif block.settings.thumbnail_url != blank %}
+                        background-image: url('{{ block.settings.thumbnail_url }}');
+                        background-size: cover;
+                        background-position: center;
+                      {% else %}
+                        background: rgba(0, 0, 0, 0.7);
+                      {% endif %}
+                    {% elsif block.settings.thumbnail_type == 'video' and block.settings.thumbnail_video %}
+                      background: rgba(0, 0, 0, 0.7);
+                    {% else %}
+                      background: rgba(0, 0, 0, 0.7);
+                    {% endif %}">
+          
+          {% if block.settings.thumbnail_type == 'video' and block.settings.thumbnail_video %}
+            <video 
+              id="thumbnail-video-{{ block.id }}"
+              {% if block.settings.video_playback == 'auto' %}
+                autoplay
+              {% endif %}
+              loop
+              muted
+              playsinline
+              style="position: absolute;
+                     top: 0;
+                     left: 0;
+                     width: 100%;
+                     height: 100%;
+                     object-fit: cover;
+                     z-index: 1;">
+              {% for source in block.settings.thumbnail_video.sources %}
+                <source src="{{ source.url }}" type="{{ source.mime_type }}">
+              {% endfor %}
+            </video>
+          {% endif %}
+
+          <div style="text-align: center; position: relative; z-index: 2;">
+            <div style="width: 80px;
+                        height: 80px;
+                        background: {{ block.settings.button_bg_color }};
+                        border-radius: 50%;
+                        display: flex;
+                        align-items: center;
+                        justify-content: center;
+                        margin: 0 auto 15px;
+                        box-shadow: 0 4px 20px rgba(0,0,0,0.3);
+                        transition: transform 0.3s ease;">
+              <svg width="30" height="36" viewBox="0 0 30 36" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <path d="M0 0L30 18L0 36V0Z" fill="{{ block.settings.button_text_color }}"/>
+              </svg>
+            </div>
+            <div style="color: {{ block.settings.button_text_color }};
+                        font-size: 24px;
+                        font-weight: bold;
+                        text-shadow: 2px 2px 4px rgba(0,0,0,0.5);">
+              {{ block.settings.play_button_text }}
+            </div>
+          </div>
+        </div>
+      {% endif %}
+
+      <iframe 
+        id="game-iframe-{{ block.id }}"
+        {% unless block.settings.show_play_overlay %}
+          src="{{ block.settings.game_url }}"
+        {% endunless %}
+        data-src="{{ block.settings.game_url }}"
+        style="position: absolute;
+               top: 0;
+               left: 0;
+               width: 100%;
+               height: 100%;
+               border: none;
+               display: block;"
+        allowfullscreen
+        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; fullscreen"
+        loading="lazy">
+      </iframe>
+
+      {% if block.settings.show_fullscreen_button %}
+        <button 
+          class="fullscreen-btn" 
+          id="fullscreen-btn-{{ block.id }}"
+          aria-label="Toggle Fullscreen"
+          style="position: absolute; 
+                 top: 10px; 
+                 right: 10px; 
+                 background: {{ block.settings.button_bg_color }}; 
+                 color: {{ block.settings.button_text_color }}; 
+                 border: none; 
+                 padding: 10px 15px; 
+                 cursor: pointer; 
+                 border-radius: 5px;
+                 font-size: 14px;
+                 font-weight: 600;
+                 z-index: 1000;
+                 box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+                 transition: all 0.3s ease;
+                 {% if block.settings.show_play_overlay %}
+                   display: none;
+                 {% endif %}"
+          onmouseover="this.style.transform='scale(1.05)'; this.style.boxShadow='0 4px 12px rgba(0,0,0,0.3)';"
+          onmouseout="this.style.transform='scale(1)'; this.style.boxShadow='0 2px 8px rgba(0,0,0,0.2)';">
+          ⛶ Fullscreen
+        </button>
+      {% endif %}
+
+      <!-- Mobile Exit Button (X) - Only visible in fullscreen on mobile -->
+      <button 
+        class="mobile-exit-btn" 
+        id="mobile-exit-btn-{{ block.id }}"
+        aria-label="Exit Fullscreen"
+        style="display: none;
+               position: fixed;
+               top: 15px;
+               right: 15px;
+               width: 50px;
+               height: 50px;
+               background: rgba(0, 0, 0, 0.7);
+               color: #fff;
+               border: 2px solid rgba(255, 255, 255, 0.5);
+               border-radius: 50%;
+               font-size: 24px;
+               font-weight: bold;
+               cursor: pointer;
+               z-index: 10001;
+               touch-action: manipulation;
+               -webkit-tap-highlight-color: transparent;
+               box-shadow: 0 4px 15px rgba(0,0,0,0.4);">
+        ✕
+      </button>
+
+      <!-- Mobile Swipe Indicator - Shows swipe down hint -->
+      <div 
+        class="swipe-indicator" 
+        id="swipe-indicator-{{ block.id }}"
+        style="display: none;
+               position: fixed;
+               top: 50%;
+               left: 50%;
+               transform: translate(-50%, -50%);
+               background: rgba(0, 0, 0, 0.8);
+               color: #fff;
+               padding: 20px 30px;
+               border-radius: 15px;
+               font-size: 16px;
+               text-align: center;
+               z-index: 10002;
+               pointer-events: none;
+               animation: fadeOut 2s forwards 1s;">
+        <div style="font-size: 30px; margin-bottom: 10px;">↓</div>
+        Swipe down to exit
+      </div>
+
+      <!-- Rotate Device Prompt -->
+      {% if block.settings.show_rotate_prompt and block.settings.orientation_lock != 'none' %}
+        <div 
+          class="rotate-prompt" 
+          id="rotate-prompt-{{ block.id }}"
+          style="display: none;
+                 position: fixed;
+                 top: 0;
+                 left: 0;
+                 width: 100%;
+                 height: 100%;
+                 background: rgba(0, 0, 0, 0.95);
+                 color: #fff;
+                 z-index: 10003;
+                 flex-direction: column;
+                 align-items: center;
+                 justify-content: center;
+                 text-align: center;
+                 padding: 20px;">
+          <div style="font-size: 60px; margin-bottom: 20px; animation: rotateIcon 2s infinite ease-in-out;">
+            {% if block.settings.orientation_lock == 'landscape' %}
+              📱↔️
+            {% else %}
+              📱↕️
+            {% endif %}
+          </div>
+          <div style="font-size: 24px; font-weight: bold; margin-bottom: 10px;">
+            {% if block.settings.orientation_lock == 'landscape' %}
+              Please Rotate Your Device
+            {% else %}
+              Please Hold Your Device Upright
+            {% endif %}
+          </div>
+          <div style="font-size: 16px; opacity: 0.8;">
+            {% if block.settings.orientation_lock == 'landscape' %}
+              This game is best played in landscape mode
+            {% else %}
+              This game is best played in portrait mode
+            {% endif %}
+          </div>
+          <button 
+            id="rotate-dismiss-{{ block.id }}"
+            style="margin-top: 30px;
+                   padding: 12px 30px;
+                   background: #fff;
+                   color: #000;
+                   border: none;
+                   border-radius: 25px;
+                   font-size: 16px;
+                   font-weight: bold;
+                   cursor: pointer;">
+            Continue Anyway
+          </button>
+        </div>
+      {% endif %}
+
+      <!-- Touch Controls Overlay Container -->
+      {% if block.settings.enable_touch_controls %}
+        <div 
+          class="touch-controls-overlay" 
+          id="touch-controls-{{ block.id }}"
+          style="display: none;
+                 position: fixed;
+                 top: 0;
+                 left: 0;
+                 width: 100%;
+                 height: 100%;
+                 z-index: 9999;
+                 pointer-events: none;">
+          <!-- Touch control elements will be injected here by JavaScript -->
+        </div>
+      {% endif %}
+    </div>
+  </div>
+</div>
+
+<style>
+  .webgl-game-container {
+    padding: 20px 0;
+  }
+
+  .game-wrapper:-webkit-full-screen {
+    width: 100vw !important;
+    height: 100vh !important;
+    max-width: 100vw !important;
+    background: #000;
+    border-radius: 0 !important;
+  }
+
+  .game-wrapper:-moz-full-screen {
+    width: 100vw !important;
+    height: 100vh !important;
+    max-width: 100vw !important;
+    background: #000;
+    border-radius: 0 !important;
+  }
+
+  .game-wrapper:fullscreen {
+    width: 100vw !important;
+    height: 100vh !important;
+    max-width: 100vw !important;
+    background: #000;
+    border-radius: 0 !important;
+  }
+
+  .game-wrapper:-webkit-full-screen > div {
+    width: 100% !important;
+    height: 100% !important;
+    padding-bottom: 0 !important;
+    border: none !important;
+  }
+
+  .game-wrapper:-moz-full-screen > div {
+    width: 100% !important;
+    height: 100% !important;
+    padding-bottom: 0 !important;
+    border: none !important;
+  }
+
+  .game-wrapper:fullscreen > div {
+    width: 100% !important;
+    height: 100% !important;
+    padding-bottom: 0 !important;
+    border: none !important;
+  }
+
+  .play-overlay:hover > div > div:first-child {
+    transform: scale(1.1);
+  }
+
+  .fullscreen-btn:active {
+    transform: scale(0.98);
+  }
+
+  .fullscreen-btn:focus {
+    outline: 2px solid {{ block.settings.button_text_color }};
+    outline-offset: 2px;
+  }
+
+  /* Mobile-specific styles */
+  @keyframes fadeOut {
+    from { opacity: 1; }
+    to { opacity: 0; visibility: hidden; }
+  }
+
+  @keyframes pulseGlow {
+    0%, 100% { box-shadow: 0 4px 15px rgba(0,0,0,0.4); }
+    50% { box-shadow: 0 4px 25px rgba(255,255,255,0.3); }
+  }
+
+  .mobile-exit-btn:active {
+    transform: scale(0.9);
+    background: rgba(0, 0, 0, 0.9);
+  }
+
+  /* Portrait mode fullscreen optimization */
+  @media (orientation: portrait) and (max-width: 768px) {
+    .game-wrapper:fullscreen,
+    .game-wrapper:-webkit-full-screen,
+    .game-wrapper:-moz-full-screen {
+      display: flex !important;
+      align-items: center !important;
+      justify-content: center !important;
+    }
+
+    .game-wrapper:fullscreen > div,
+    .game-wrapper:-webkit-full-screen > div,
+    .game-wrapper:-moz-full-screen > div {
+      width: 100% !important;
+      height: 100% !important;
+      max-height: 100vh !important;
+    }
+
+    .game-wrapper:fullscreen iframe,
+    .game-wrapper:-webkit-full-screen iframe,
+    .game-wrapper:-moz-full-screen iframe {
+      width: 100% !important;
+      height: 100% !important;
+      object-fit: contain !important;
+    }
+  }
+
+  /* Landscape mode on mobile */
+  @media (orientation: landscape) and (max-height: 500px) {
+    .game-wrapper:fullscreen,
+    .game-wrapper:-webkit-full-screen,
+    .game-wrapper:-moz-full-screen {
+      display: flex !important;
+      align-items: center !important;
+      justify-content: center !important;
+    }
+  }
+
+  /* Touch-friendly exit button sizing */
+  @media (hover: none) and (pointer: coarse) {
+    .mobile-exit-btn {
+      min-width: 50px;
+      min-height: 50px;
+    }
+  }
+
+  /* Rotate icon animation */
+  @keyframes rotateIcon {
+    0%, 100% { transform: rotate(0deg); }
+    25% { transform: rotate(-15deg); }
+    75% { transform: rotate(15deg); }
+  }
+
+  /* Touch control button styles */
+  .touch-control-btn {
+    position: absolute;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    pointer-events: auto;
+    touch-action: manipulation;
+    -webkit-tap-highlight-color: transparent;
+    user-select: none;
+    transition: background-color 0.1s ease, transform 0.1s ease;
+  }
+
+  .touch-control-btn:active {
+    transform: scale(0.95);
+  }
+
+  .touch-control-btn img {
+    max-width: 60%;
+    max-height: 60%;
+    pointer-events: none;
+  }
+
+  /* Joystick styles */
+  .touch-joystick {
+    position: absolute;
+    pointer-events: auto;
+    touch-action: none;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  .touch-joystick-base {
+    position: absolute;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .touch-joystick-stick {
+    position: absolute;
+    border-radius: 50%;
+    pointer-events: none;
+    transition: transform 0.05s ease-out;
+  }
+</style>
+
+<script>
+(function() {
+  const wrapper = document.getElementById('game-wrapper-{{ block.id }}');
+  const btn = document.getElementById('fullscreen-btn-{{ block.id }}');
+  const iframe = document.getElementById('game-iframe-{{ block.id }}');
+  const overlay = document.getElementById('play-overlay-{{ block.id }}');
+  const video = document.getElementById('thumbnail-video-{{ block.id }}');
+  const mobileExitBtn = document.getElementById('mobile-exit-btn-{{ block.id }}');
+  const swipeIndicator = document.getElementById('swipe-indicator-{{ block.id }}');
+  const rotatePrompt = document.getElementById('rotate-prompt-{{ block.id }}');
+  const rotateDismiss = document.getElementById('rotate-dismiss-{{ block.id }}');
+  const touchControlsOverlay = document.getElementById('touch-controls-{{ block.id }}');
+  
+  const gameId = '{{ block.settings.game_url | split: '/' | last | split: '?' | first }}';
+  let impressionTracked = false;
+  let playTracked = false;
+  let playtimeInterval = null;
+  let playStartTime = null;
+
+  // Settings from block
+  const orientationLock = '{{ block.settings.orientation_lock }}';
+  const enableTouchControls = {{ block.settings.enable_touch_controls | json }};
+  const inputLayoutId = '{{ block.settings.input_layout }}';
+
+  // Mobile detection
+  const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) || 
+                   (window.matchMedia && window.matchMedia('(hover: none) and (pointer: coarse)').matches);
+
+  // Touch gesture tracking
+  let touchStartY = 0;
+  let touchStartX = 0;
+  let swipeThreshold = 100; // Minimum swipe distance to trigger exit
+  let swipeHintShown = false;
+  
+  // Touch controls state
+  let inputLayout = null;
+  let activeJoysticks = new Map();
+
+  // Analytics tracking function
+  function trackEvent(type, value) {
+    fetch('/apps/gamify/api/track', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        gameId: gameId,
+        type: type,
+        value: value
+      })
+    }).catch(function(err) {
+      console.error('Analytics tracking error:', err);
+    });
+  }
+
+  // Track impression when game is visible
+  function trackImpression() {
+    if (impressionTracked) return;
+    
+    const observer = new IntersectionObserver(function(entries) {
+      entries.forEach(function(entry) {
+        if (entry.isIntersecting && !impressionTracked) {
+          impressionTracked = true;
+          trackEvent('impression');
+          observer.disconnect();
+        }
+      });
+    }, { threshold: 0.5 });
+    
+    observer.observe(wrapper);
+  }
+
+  // Track play when game starts
+  function trackPlay() {
+    if (playTracked) return;
+    playTracked = true;
+    trackEvent('play');
+    playStartTime = Date.now();
+    startPlaytimeTracking();
+  }
+
+  // Track playtime periodically
+  function startPlaytimeTracking() {
+    if (playtimeInterval) return;
+    
+    playtimeInterval = setInterval(function() {
+      if (playStartTime) {
+        const playtime = Math.floor((Date.now() - playStartTime) / 1000);
+        if (playtime >= 10) { // Track every 10 seconds
+          trackEvent('playtime', playtime);
+          playStartTime = Date.now(); // Reset timer
+        }
+      }
+    }, 10000);
+  }
+
+  function stopPlaytimeTracking() {
+    if (playtimeInterval) {
+      clearInterval(playtimeInterval);
+      playtimeInterval = null;
+      
+      // Track final playtime
+      if (playStartTime) {
+        const playtime = Math.floor((Date.now() - playStartTime) / 1000);
+        if (playtime > 0) {
+          trackEvent('playtime', playtime);
+        }
+      }
+    }
+  }
+
+  // Start tracking impression
+  trackImpression();
+
+  // Handle video playback on hover
+  if (video && overlay && '{{ block.settings.video_playback }}' === 'hover') {
+    overlay.addEventListener('mouseenter', function() {
+      video.play();
+    });
+    overlay.addEventListener('mouseleave', function() {
+      video.pause();
+      video.currentTime = 0;
+    });
+  }
+
+  // Handle play overlay click
+  if (overlay && iframe) {
+    overlay.addEventListener('click', function() {
+      // Load the game
+      if (!iframe.src || iframe.src === '') {
+        iframe.src = iframe.getAttribute('data-src');
+      }
+      // Hide overlay
+      overlay.style.display = 'none';
+      // Show fullscreen button if enabled
+      if (btn) {
+        btn.style.display = 'block';
+      }
+      // Track play
+      trackPlay();
+    });
+  } else if (iframe && iframe.src) {
+    // If no overlay, track play immediately
+    trackPlay();
+  }
+
+  // Stop tracking when user leaves page
+  window.addEventListener('beforeunload', stopPlaytimeTracking);
+  document.addEventListener('visibilitychange', function() {
+    if (document.hidden) {
+      stopPlaytimeTracking();
+    } else if (playTracked && !playtimeInterval) {
+      playStartTime = Date.now();
+      startPlaytimeTracking();
+    }
+  });
+
+  if (!btn || !wrapper) return;
+
+  function isFullscreen() {
+    return !!(document.fullscreenElement || 
+              document.webkitFullscreenElement || 
+              document.mozFullScreenElement ||
+              document.msFullscreenElement);
+  }
+
+  // Orientation lock functionality
+  async function lockOrientation(orientation) {
+    if (!screen.orientation || !screen.orientation.lock) return;
+    
+    try {
+      await screen.orientation.lock(orientation);
+    } catch (err) {
+      console.log('Orientation lock not supported:', err.message);
+    }
+  }
+
+  function unlockOrientation() {
+    if (screen.orientation && screen.orientation.unlock) {
+      try {
+        screen.orientation.unlock();
+      } catch (err) {
+        // Ignore errors
+      }
+    }
+  }
+
+  function checkOrientationMatch() {
+    if (orientationLock === 'none') return true;
+    
+    const isPortrait = window.innerHeight > window.innerWidth;
+    
+    if (orientationLock === 'portrait' && !isPortrait) return false;
+    if (orientationLock === 'landscape' && isPortrait) return false;
+    
+    return true;
+  }
+
+  function showRotatePrompt() {
+    if (rotatePrompt && !checkOrientationMatch()) {
+      rotatePrompt.style.display = 'flex';
+    }
+  }
+
+  function hideRotatePrompt() {
+    if (rotatePrompt) {
+      rotatePrompt.style.display = 'none';
+    }
+  }
+
+  // Touch controls functions
+  async function loadInputLayout() {
+    if (!enableTouchControls || inputLayoutId === 'none') return null;
+    
+    try {
+      const shop = window.Shopify?.shop || '';
+      const response = await fetch('/apps/gamify/api/input-layout?shop=' + encodeURIComponent(shop) + '&layoutId=' + encodeURIComponent(inputLayoutId));
+      const data = await response.json();
+      return data.layout;
+    } catch (err) {
+      console.error('Failed to load input layout:', err);
+      return null;
+    }
+  }
+
+  function sendKeyEvent(key, eventType) {
+    if (!iframe || !iframe.contentWindow) return;
+    
+    try {
+      iframe.contentWindow.postMessage({
+        type: 'gamify-key-event',
+        eventType: eventType,
+        key: key
+      }, '*');
+    } catch (err) {
+      // Also dispatch to the document for games that listen there
+      const event = new KeyboardEvent(eventType, {
+        key: key,
+        code: key.length === 1 ? 'Key' + key.toUpperCase() : key,
+        bubbles: true,
+        cancelable: true
+      });
+      document.dispatchEvent(event);
+    }
+  }
+
+  function createTouchButton(element) {
+    const btn = document.createElement('div');
+    btn.className = 'touch-control-btn';
+    btn.style.cssText = `
+      left: ${element.x}%;
+      top: ${element.y}%;
+      width: ${element.width}%;
+      height: ${element.height}%;
+      background-color: ${element.defaultColor};
+      opacity: ${element.opacity};
+      border-radius: ${element.borderRadius}%;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+    `;
+
+    if (element.icon) {
+      const img = document.createElement('img');
+      img.src = element.icon;
+      img.alt = element.label || '';
+      btn.appendChild(img);
+    } else if (element.showLabel && element.label) {
+      const label = document.createElement('span');
+      label.textContent = element.label;
+      label.style.cssText = `
+        color: #333;
+        font-weight: bold;
+        font-size: 16px;
+        pointer-events: none;
+      `;
+      btn.appendChild(label);
+    }
+
+    // Touch events
+    btn.addEventListener('touchstart', function(e) {
+      e.preventDefault();
+      btn.style.backgroundColor = element.pressColor;
+      btn.style.transform = 'scale(0.95)';
+      element.keyBindings.forEach(function(key) {
+        sendKeyEvent(key, 'keydown');
+      });
+    }, { passive: false });
+
+    btn.addEventListener('touchend', function(e) {
+      e.preventDefault();
+      btn.style.backgroundColor = element.defaultColor;
+      btn.style.transform = 'scale(1)';
+      element.keyBindings.forEach(function(key) {
+        sendKeyEvent(key, 'keyup');
+      });
+    }, { passive: false });
+
+    return btn;
+  }
+
+  function createTouchJoystick(element) {
+    const container = document.createElement('div');
+    container.className = 'touch-joystick';
+    container.style.cssText = `
+      left: ${element.x}%;
+      top: ${element.y}%;
+      width: ${element.width}%;
+      height: ${element.height}%;
+    `;
+
+    const base = document.createElement('div');
+    base.className = 'touch-joystick-base';
+    base.style.cssText = `
+      width: 100%;
+      height: 100%;
+      background-color: ${element.defaultColor};
+      opacity: ${element.opacity};
+      box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+    `;
+
+    const stick = document.createElement('div');
+    stick.className = 'touch-joystick-stick';
+    stick.style.cssText = `
+      width: 40%;
+      height: 40%;
+      left: 30%;
+      top: 30%;
+      background-color: ${element.pressColor};
+      opacity: 0.8;
+    `;
+
+    base.appendChild(stick);
+    container.appendChild(base);
+
+    let joystickActive = false;
+    let centerX = 0;
+    let centerY = 0;
+    let currentKeys = new Set();
+
+    function updateJoystick(touchX, touchY) {
+      const rect = base.getBoundingClientRect();
+      const maxDist = rect.width / 3;
+      
+      let dx = touchX - centerX;
+      let dy = touchY - centerY;
+      const dist = Math.sqrt(dx * dx + dy * dy);
+      
+      if (dist > maxDist) {
+        dx = (dx / dist) * maxDist;
+        dy = (dy / dist) * maxDist;
+      }
+
+      stick.style.transform = `translate(${dx}px, ${dy}px)`;
+
+      // Determine direction and send key events
+      const threshold = maxDist * 0.3;
+      const keys = element.keyBindings; // [up, left, down, right]
+      const newKeys = new Set();
+
+      if (dy < -threshold && keys[0]) newKeys.add(keys[0]); // up
+      if (dx < -threshold && keys[1]) newKeys.add(keys[1]); // left
+      if (dy > threshold && keys[2]) newKeys.add(keys[2]); // down
+      if (dx > threshold && keys[3]) newKeys.add(keys[3]); // right
+
+      // Send keyup for released keys
+      currentKeys.forEach(function(key) {
+        if (!newKeys.has(key)) {
+          sendKeyEvent(key, 'keyup');
+        }
+      });
+
+      // Send keydown for new keys
+      newKeys.forEach(function(key) {
+        if (!currentKeys.has(key)) {
+          sendKeyEvent(key, 'keydown');
+        }
+      });
+
+      currentKeys = newKeys;
+    }
+
+    function resetJoystick() {
+      stick.style.transform = 'translate(0, 0)';
+      currentKeys.forEach(function(key) {
+        sendKeyEvent(key, 'keyup');
+      });
+      currentKeys.clear();
+    }
+
+    container.addEventListener('touchstart', function(e) {
+      e.preventDefault();
+      const touch = e.touches[0];
+      const rect = base.getBoundingClientRect();
+      centerX = rect.left + rect.width / 2;
+      centerY = rect.top + rect.height / 2;
+      joystickActive = true;
+      base.style.backgroundColor = element.hoverColor;
+      updateJoystick(touch.clientX, touch.clientY);
+    }, { passive: false });
+
+    container.addEventListener('touchmove', function(e) {
+      if (!joystickActive) return;
+      e.preventDefault();
+      const touch = e.touches[0];
+      updateJoystick(touch.clientX, touch.clientY);
+    }, { passive: false });
+
+    container.addEventListener('touchend', function(e) {
+      e.preventDefault();
+      joystickActive = false;
+      base.style.backgroundColor = element.defaultColor;
+      resetJoystick();
+    }, { passive: false });
+
+    container.addEventListener('touchcancel', function(e) {
+      joystickActive = false;
+      base.style.backgroundColor = element.defaultColor;
+      resetJoystick();
+    });
+
+    return container;
+  }
+
+  function renderTouchControls() {
+    if (!touchControlsOverlay || !inputLayout) return;
+    
+    touchControlsOverlay.innerHTML = '';
+    
+    inputLayout.elements.forEach(function(element) {
+      let control;
+      if (element.type === 'joystick') {
+        control = createTouchJoystick(element);
+      } else if (element.type === 'button') {
+        control = createTouchButton(element);
+      }
+      if (control) {
+        touchControlsOverlay.appendChild(control);
+      }
+    });
+  }
+
+  function showTouchControls() {
+    if (touchControlsOverlay && inputLayout && isMobile) {
+      touchControlsOverlay.style.display = 'block';
+    }
+  }
+
+  function hideTouchControls() {
+    if (touchControlsOverlay) {
+      touchControlsOverlay.style.display = 'none';
+    }
+  }
+
+  // Load input layout on init
+  if (enableTouchControls && isMobile) {
+    loadInputLayout().then(function(layout) {
+      inputLayout = layout;
+      if (layout) {
+        renderTouchControls();
+      }
+    });
+  }
+
+  // Rotate prompt dismiss button
+  if (rotateDismiss) {
+    rotateDismiss.addEventListener('click', function() {
+      hideRotatePrompt();
+    });
+  }
+
+  // Check orientation on change
+  window.addEventListener('orientationchange', function() {
+    setTimeout(function() {
+      if (isFullscreen()) {
+        if (!checkOrientationMatch()) {
+          showRotatePrompt();
+        } else {
+          hideRotatePrompt();
+        }
+      }
+    }, 100);
+  });
+
+  window.addEventListener('resize', function() {
+    if (isFullscreen()) {
+      if (!checkOrientationMatch()) {
+        showRotatePrompt();
+      } else {
+        hideRotatePrompt();
+      }
+    }
+  });
+
+  function enterFullscreen() {
+    // Try to lock orientation if specified
+    if (orientationLock !== 'none' && isMobile) {
+      const lockType = orientationLock === 'portrait' ? 'portrait' : 'landscape';
+      lockOrientation(lockType);
+    }
+
+    if (wrapper.requestFullscreen) {
+      wrapper.requestFullscreen();
+    } else if (wrapper.mozRequestFullScreen) {
+      wrapper.mozRequestFullScreen();
+    } else if (wrapper.webkitRequestFullscreen) {
+      wrapper.webkitRequestFullscreen();
+    } else if (wrapper.msRequestFullscreen) {
+      wrapper.msRequestFullscreen();
+    }
+  }
+
+  function exitFullscreen() {
+    // Unlock orientation
+    unlockOrientation();
+    hideTouchControls();
+    hideRotatePrompt();
+
+    if (document.exitFullscreen) {
+      document.exitFullscreen();
+    } else if (document.mozCancelFullScreen) {
+      document.mozCancelFullScreen();
+    } else if (document.webkitExitFullscreen) {
+      document.webkitExitFullscreen();
+    } else if (document.msExitFullscreen) {
+      document.msExitFullscreen();
+    }
+  }
+
+  btn.addEventListener('click', function(e) {
+    e.preventDefault();
+    e.stopPropagation();
+    
+    if (isFullscreen()) {
+      exitFullscreen();
+    } else {
+      enterFullscreen();
+    }
+  });
+
+  // Update button text when fullscreen changes
+  function updateButton() {
+    if (isFullscreen()) {
+      btn.textContent = '⛶ Exit Fullscreen';
+      // Show mobile exit button when in fullscreen on mobile
+      if (isMobile && mobileExitBtn) {
+        mobileExitBtn.style.display = 'block';
+        mobileExitBtn.style.animation = 'pulseGlow 2s infinite';
+        
+        // Show swipe hint once
+        if (!swipeHintShown && swipeIndicator) {
+          swipeIndicator.style.display = 'block';
+          swipeHintShown = true;
+          setTimeout(function() {
+            swipeIndicator.style.display = 'none';
+          }, 3000);
+        }
+      }
+
+      // Show touch controls on mobile in fullscreen
+      if (isMobile && enableTouchControls && inputLayout) {
+        showTouchControls();
+      }
+
+      // Check orientation and show prompt if needed
+      if (isMobile && orientationLock !== 'none' && !checkOrientationMatch()) {
+        showRotatePrompt();
+      }
+    } else {
+      btn.textContent = '⛶ Fullscreen';
+      // Hide mobile exit button when not in fullscreen
+      if (mobileExitBtn) {
+        mobileExitBtn.style.display = 'none';
+      }
+      // Hide touch controls and rotate prompt
+      hideTouchControls();
+      hideRotatePrompt();
+    }
+  }
+
+  // Mobile exit button click handler
+  if (mobileExitBtn) {
+    mobileExitBtn.addEventListener('click', function(e) {
+      e.preventDefault();
+      e.stopPropagation();
+      if (isFullscreen()) {
+        exitFullscreen();
+      }
+    });
+
+    // Prevent touch events from propagating to game
+    mobileExitBtn.addEventListener('touchstart', function(e) {
+      e.stopPropagation();
+    });
+  }
+
+  // Swipe down to exit fullscreen (on mobile)
+  if (wrapper && isMobile) {
+    wrapper.addEventListener('touchstart', function(e) {
+      if (isFullscreen() && e.touches.length === 1) {
+        touchStartY = e.touches[0].clientY;
+        touchStartX = e.touches[0].clientX;
+      }
+    }, { passive: true });
+
+    wrapper.addEventListener('touchmove', function(e) {
+      // Allow normal touch interactions in the game
+    }, { passive: true });
+
+    wrapper.addEventListener('touchend', function(e) {
+      if (isFullscreen() && e.changedTouches.length === 1) {
+        const touchEndY = e.changedTouches[0].clientY;
+        const touchEndX = e.changedTouches[0].clientX;
+        const deltaY = touchEndY - touchStartY;
+        const deltaX = Math.abs(touchEndX - touchStartX);
+        
+        // Swipe down gesture detection (vertical movement > horizontal, downward direction)
+        if (deltaY > swipeThreshold && deltaY > deltaX * 1.5) {
+          // Only trigger if swipe started from top 20% of screen
+          if (touchStartY < window.innerHeight * 0.2) {
+            exitFullscreen();
+          }
+        }
+      }
+    }, { passive: true });
+  }
+
+  // Handle orientation change in fullscreen
+  window.addEventListener('orientationchange', function() {
+    if (isFullscreen()) {
+      // Force reflow to ensure proper sizing after orientation change
+      setTimeout(function() {
+        if (wrapper) {
+          wrapper.style.display = 'none';
+          wrapper.offsetHeight; // Force reflow
+          wrapper.style.display = '';
+        }
+      }, 100);
+    }
+  });
+
+  document.addEventListener('fullscreenchange', updateButton);
+  document.addEventListener('webkitfullscreenchange', updateButton);
+  document.addEventListener('mozfullscreenchange', updateButton);
+  document.addEventListener('MSFullscreenChange', updateButton);
+})();
+</script>
+
+{% schema %}
+{
+  "name": "WebGL Game",
+  "target": "section",
+  "settings": [
+    {
+      "type": "header",
+      "content": "Game Settings"
+    },
+    {
+      "type": "text",
+      "id": "game_title",
+      "label": "Game Title",
+      "default": "Play Now"
+    },
+    {
+      "type": "textarea",
+      "id": "game_description",
+      "label": "Game Description",
+      "default": "Click to start playing!"
+    },
+    {
+      "type": "url",
+      "id": "game_url",
+      "label": "Game URL",
+      "info": "Enter the URL to your WebGL game (must be hosted)"
+    },
+    {
+      "type": "header",
+      "content": "Display Settings"
+    },
+    {
+      "type": "range",
+      "id": "max_width",
+      "min": 400,
+      "max": 1900,
+      "step": 100,
+      "unit": "px",
+      "label": "Maximum Width",
+      "default": 800
+    },
+    {
+      "type": "range",
+      "id": "height",
+      "min": 300,
+      "max": 1100,
+      "step": 100,
+      "unit": "px",
+      "label": "Height",
+      "default": 600
+    },
+    {
+      "type": "range",
+      "id": "border_width",
+      "min": 0,
+      "max": 10,
+      "step": 1,
+      "unit": "px",
+      "label": "Border Width",
+      "default": 2
+    },
+    {
+      "type": "range",
+      "id": "border_radius",
+      "min": 0,
+      "max": 30,
+      "step": 1,
+      "unit": "px",
+      "label": "Border Radius",
+      "default": 8
+    },
+    {
+      "type": "color",
+      "id": "border_color",
+      "label": "Border Color",
+      "default": "#cccccc"
+    },
+    {
+      "type": "header",
+      "content": "Background Fill"
+    },
+    {
+      "type": "select",
+      "id": "fill_type",
+      "label": "Fill Type",
+      "options": [
+        {
+          "value": "none",
+          "label": "None"
+        },
+        {
+          "value": "color",
+          "label": "Solid Color"
+        },
+        {
+          "value": "image",
+          "label": "Image"
+        }
+      ],
+      "default": "color"
+    },
+    {
+      "type": "color",
+      "id": "fill_color",
+      "label": "Fill Color",
+      "default": "#000000",
+      "info": "Used when Fill Type is set to Solid Color"
+    },
+    {
+      "type": "image_picker",
+      "id": "fill_image",
+      "label": "Fill Image",
+      "info": "Used when Fill Type is set to Image"
+    },
+    {
+      "type": "header",
+      "content": "Text Styling"
+    },
+    {
+      "type": "color",
+      "id": "title_color",
+      "label": "Title Color",
+      "default": "#000000"
+    },
+    {
+      "type": "color",
+      "id": "description_color",
+      "label": "Description Color",
+      "default": "#666666"
+    },
+    {
+      "type": "header",
+      "content": "Play Overlay"
+    },
+    {
+      "type": "checkbox",
+      "id": "show_play_overlay",
+      "label": "Show Play Overlay",
+      "default": false,
+      "info": "When enabled, game loads only after clicking play button"
+    },
+    {
+      "type": "text",
+      "id": "play_button_text",
+      "label": "Play Button Text",
+      "default": "Play Now"
+    },
+    {
+      "type": "header",
+      "content": "Thumbnail Settings"
+    },
+    {
+      "type": "select",
+      "id": "thumbnail_type",
+      "label": "Thumbnail Type",
+      "options": [
+        {
+          "value": "image",
+          "label": "Image"
+        },
+        {
+          "value": "video",
+          "label": "Video"
+        }
+      ],
+      "default": "image",
+      "info": "Choose between static image or video thumbnail"
+    },
+    {
+      "type": "image_picker",
+      "id": "thumbnail_image",
+      "label": "Thumbnail Image",
+      "info": "Upload image thumbnail (shown when Thumbnail Type is Image)"
+    },
+    {
+      "type": "video",
+      "id": "thumbnail_video",
+      "label": "Thumbnail Video",
+      "info": "Upload video thumbnail (shown when Thumbnail Type is Video)"
+    },
+    {
+      "type": "select",
+      "id": "video_playback",
+      "label": "Video Playback",
+      "options": [
+        {
+          "value": "auto",
+          "label": "Auto Play"
+        },
+        {
+          "value": "hover",
+          "label": "Play on Hover"
+        }
+      ],
+      "default": "auto",
+      "info": "How the video thumbnail should play"
+    },
+    {
+      "type": "url",
+      "id": "thumbnail_url",
+      "label": "Or Use External Image URL",
+      "info": "Alternative to uploading - provide external image URL"
+    },
+    {
+      "type": "header",
+      "content": "Fullscreen Button"
+    },
+    {
+      "type": "checkbox",
+      "id": "show_fullscreen_button",
+      "label": "Show Fullscreen Button",
+      "default": true
+    },
+    {
+      "type": "color",
+      "id": "button_bg_color",
+      "label": "Button Background Color",
+      "default": "#000000"
+    },
+    {
+      "type": "color",
+      "id": "button_text_color",
+      "label": "Button Text Color",
+      "default": "#ffffff"
+    },
+    {
+      "type": "header",
+      "content": "Mobile Settings"
+    },
+    {
+      "type": "select",
+      "id": "orientation_lock",
+      "label": "Orientation Lock (Fullscreen)",
+      "options": [
+        {
+          "value": "none",
+          "label": "No Lock (Auto)"
+        },
+        {
+          "value": "portrait",
+          "label": "Portrait Only"
+        },
+        {
+          "value": "landscape",
+          "label": "Landscape Only"
+        }
+      ],
+      "default": "none",
+      "info": "Lock screen orientation when entering fullscreen on mobile devices"
+    },
+    {
+      "type": "checkbox",
+      "id": "show_rotate_prompt",
+      "label": "Show Rotate Device Prompt",
+      "default": true,
+      "info": "Show a prompt asking users to rotate their device when orientation is locked"
+    },
+    {
+      "type": "header",
+      "content": "Mobile Touch Controls"
+    },
+    {
+      "type": "checkbox",
+      "id": "enable_touch_controls",
+      "label": "Enable Touch Controls",
+      "default": false,
+      "info": "Show virtual joysticks and buttons on mobile in fullscreen mode"
+    },
+    {
+      "type": "select",
+      "id": "input_layout",
+      "label": "Input Layout",
+      "options": [
+        {
+          "value": "default",
+          "label": "Default Layout"
+        },
+        {
+          "value": "none",
+          "label": "No Controls"
+        }
+      ],
+      "default": "default",
+      "info": "Select which input layout to use. Create layouts in the Gamify app."
+    }
+  ]
+}
+{% endschema %}

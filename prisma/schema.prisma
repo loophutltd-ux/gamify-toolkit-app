@@ -1,0 +1,84 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+// Note that some adapters may set a maximum length for the String type by default, please ensure your strings are long
+// enough when changing adapters.
+// See https://www.prisma.io/docs/orm/reference/prisma-schema-reference#string for more information
+datasource db {
+  provider = "sqlite"
+  url      = "file:dev.sqlite"
+}
+
+model Session {
+  id            String    @id
+  shop          String
+  state         String
+  isOnline      Boolean   @default(false)
+  scope         String?
+  expires       DateTime?
+  accessToken   String
+  userId        BigInt?
+  firstName     String?
+  lastName      String?
+  email         String?
+  accountOwner  Boolean   @default(false)
+  locale        String?
+  collaborator  Boolean?  @default(false)
+  emailVerified Boolean?  @default(false)
+}
+
+model Game {
+  id          String   @id @default(uuid())
+  shop        String
+  title       String
+  description String?
+  gameUrl     String
+  thumbnailUrl String?
+  width       Int      @default(800)
+  height      Int      @default(600)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  analytics   GameAnalytics[]
+}
+
+model GameAnalytics {
+  id          String   @id @default(uuid())
+  gameId      String
+  game        Game     @relation(fields: [gameId], references: [id], onDelete: Cascade)
+  shop        String
+  impressions Int      @default(0)
+  plays       Int      @default(0)
+  totalPlaytimeSeconds Int @default(0)
+  date        DateTime @default(now())
+  
+  @@index([gameId])
+  @@index([shop])
+  @@index([date])
+}
+
+model AppSettings {
+  id                    String   @id @default(uuid())
+  shop                  String   @unique
+  trackImpressions      Boolean  @default(true)
+  trackPlays            Boolean  @default(true)
+  trackPlaytime         Boolean  @default(true)
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+}
+
+model InputLayout {
+  id          String   @id @default(uuid())
+  shop        String
+  name        String
+  description String?
+  elements    String   // JSON string containing array of input elements
+  isDefault   Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([shop])
+}
