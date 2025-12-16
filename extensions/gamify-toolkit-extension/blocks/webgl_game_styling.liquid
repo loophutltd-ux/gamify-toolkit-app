@@ -1,0 +1,71 @@
+{% comment %}
+  WebGL Game Styling Block - Companion block for background customization
+  Use this with the main WebGL Game block to add background styling
+{% endcomment %}
+
+<style id="game-styling-{{ block.id }}">
+  .game-wrapper[data-game-id="{{ block.settings.target_game_id }}"] {
+    {% if block.settings.fill_type == 'color' %}
+      background-color: {{ block.settings.fill_color }} !important;
+    {% elsif block.settings.fill_type == 'image' and block.settings.fill_image %}
+      background-image: url('{{ block.settings.fill_image | img_url: 'master' }}') !important;
+      background-size: cover !important;
+      background-position: center !important;
+    {% endif %}
+  }
+
+  .game-wrapper[data-game-id="{{ block.settings.target_game_id }}"] > div {
+    {% if block.settings.border_width > 0 %}
+      border: {{ block.settings.border_width }}px solid {{ block.settings.border_color }} !important;
+    {% endif %}
+  }
+
+  {% if block.settings.custom_title_color %}
+    .webgl-game-container[data-game-id="{{ block.settings.target_game_id }}"] h3 {
+      color: {{ block.settings.title_color }} !important;
+    }
+  {% endif %}
+</style>
+
+<script>
+(function() {
+  // Apply data-game-id to matching game wrappers for targeting
+  const targetId = '{{ block.settings.target_game_id }}';
+  if (targetId) {
+    const gameWrappers = document.querySelectorAll('.game-wrapper');
+    gameWrappers.forEach(function(wrapper) {
+      const iframe = wrapper.querySelector('iframe');
+      if (iframe) {
+        const src = iframe.getAttribute('data-src') || iframe.src;
+        if (src && src.includes(targetId)) {
+          wrapper.setAttribute('data-game-id', targetId);
+          const container = wrapper.closest('.webgl-game-container');
+          if (container) {
+            container.setAttribute('data-game-id', targetId);
+          }
+        }
+      }
+    });
+  }
+})();
+</script>
+
+{% schema %}
+{
+  "name": "Game Styling",
+  "target": "section",
+  "settings": [
+    { "type": "header", "content": "Target Game" },
+    { "type": "text", "id": "target_game_id", "label": "Game ID or URL Fragment", "info": "Enter a unique identifier from your game URL to target (e.g., 'demo-game')" },
+    { "type": "header", "content": "Background Fill" },
+    { "type": "select", "id": "fill_type", "label": "Fill Type", "options": [{"value": "none", "label": "None (Use Default)"}, {"value": "color", "label": "Solid Color"}, {"value": "image", "label": "Background Image"}], "default": "none" },
+    { "type": "color", "id": "fill_color", "label": "Fill Color", "default": "#000000", "info": "Used when Fill Type is Solid Color" },
+    { "type": "image_picker", "id": "fill_image", "label": "Background Image", "info": "Used when Fill Type is Image" },
+    { "type": "header", "content": "Border & Text" },
+    { "type": "range", "id": "border_width", "min": 0, "max": 10, "step": 1, "unit": "px", "label": "Border Width", "default": 0 },
+    { "type": "color", "id": "border_color", "label": "Border Color", "default": "#cccccc" },
+    { "type": "checkbox", "id": "custom_title_color", "label": "Custom Title Color", "default": false },
+    { "type": "color", "id": "title_color", "label": "Title Color", "default": "#000000" }
+  ]
+}
+{% endschema %}

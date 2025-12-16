@@ -1,0 +1,152 @@
+{% comment %}
+  WebGL Game Orientation Lock Block - Companion block for mobile orientation control
+  Use this with the main WebGL Game block to add orientation locking
+{% endcomment %}
+
+<!-- Rotate Device Prompt -->
+<div 
+  class="rotate-prompt" 
+  id="rotate-prompt-orientation-{{ block.id }}"
+  data-game-id="{{ block.settings.target_game_id }}"
+  data-orientation="{{ block.settings.orientation_lock }}"
+  style="display: none;
+         position: fixed;
+         top: 0;
+         left: 0;
+         width: 100%;
+         height: 100%;
+         background: rgba(0, 0, 0, 0.95);
+         color: #fff;
+         z-index: 10003;
+         flex-direction: column;
+         align-items: center;
+         justify-content: center;
+         text-align: center;
+         padding: 20px;">
+  <div style="font-size: 60px; margin-bottom: 20px; animation: rotateIcon 2s infinite ease-in-out;">
+    {% if block.settings.orientation_lock == 'landscape' %}
+      📱↔️
+    {% else %}
+      📱↕️
+    {% endif %}
+  </div>
+  <div style="font-size: 24px; font-weight: bold; margin-bottom: 10px;">
+    {% if block.settings.orientation_lock == 'landscape' %}
+      {{ block.settings.landscape_message }}
+    {% else %}
+      {{ block.settings.portrait_message }}
+    {% endif %}
+  </div>
+  {% if block.settings.show_dismiss_button %}
+    <button 
+      class="rotate-dismiss-btn"
+      style="margin-top: 30px;
+             padding: 12px 30px;
+             background: #fff;
+             color: #000;
+             border: none;
+             border-radius: 25px;
+             font-size: 16px;
+             font-weight: bold;
+             cursor: pointer;">
+      {{ block.settings.dismiss_button_text }}
+    </button>
+  {% endif %}
+</div>
+
+<style>
+  @keyframes rotateIcon {
+    0%, 100% { transform: rotate(0deg); }
+    25% { transform: rotate(-15deg); }
+    75% { transform: rotate(15deg); }
+  }
+</style>
+
+<script>
+(function() {
+  const rotatePrompt = document.getElementById('rotate-prompt-orientation-{{ block.id }}');
+  const dismissBtn = rotatePrompt ? rotatePrompt.querySelector('.rotate-dismiss-btn') : null;
+  const targetGameId = '{{ block.settings.target_game_id }}';
+  const orientationLock = '{{ block.settings.orientation_lock }}';
+  
+  if (!rotatePrompt || orientationLock === 'none') return;
+
+  function checkOrientationMatch() {
+    const isLandscape = window.innerWidth > window.innerHeight;
+    if (orientationLock === 'landscape') {
+      return isLandscape;
+    } else if (orientationLock === 'portrait') {
+      return !isLandscape;
+    }
+    return true;
+  }
+
+  function showRotatePrompt() {
+    if (!checkOrientationMatch()) {
+      rotatePrompt.style.display = 'flex';
+    }
+  }
+
+  function hideRotatePrompt() {
+    rotatePrompt.style.display = 'none';
+  }
+
+  // Dismiss button handler
+  if (dismissBtn) {
+    dismissBtn.addEventListener('click', hideRotatePrompt);
+  }
+
+  // Check on orientation change
+  window.addEventListener('orientationchange', function() {
+    setTimeout(function() {
+      if (checkOrientationMatch()) {
+        hideRotatePrompt();
+      } else {
+        showRotatePrompt();
+      }
+    }, 100);
+  });
+
+  // Check on resize
+  window.addEventListener('resize', function() {
+    if (checkOrientationMatch()) {
+      hideRotatePrompt();
+    }
+  });
+
+  // Monitor fullscreen changes
+  document.addEventListener('fullscreenchange', function() {
+    if (document.fullscreenElement) {
+      showRotatePrompt();
+    } else {
+      hideRotatePrompt();
+    }
+  });
+
+  document.addEventListener('webkitfullscreenchange', function() {
+    if (document.webkitFullscreenElement) {
+      showRotatePrompt();
+    } else {
+      hideRotatePrompt();
+    }
+  });
+})();
+</script>
+
+{% schema %}
+{
+  "name": "Game Orientation Lock",
+  "target": "section",
+  "settings": [
+    { "type": "header", "content": "Target Game" },
+    { "type": "text", "id": "target_game_id", "label": "Game ID or URL Fragment", "info": "Enter a unique identifier from your game URL" },
+    { "type": "header", "content": "Orientation Settings" },
+    { "type": "select", "id": "orientation_lock", "label": "Preferred Orientation", "options": [{"value": "none", "label": "No Preference"}, {"value": "portrait", "label": "Portrait Mode"}, {"value": "landscape", "label": "Landscape Mode"}], "default": "landscape", "info": "Show a prompt when device is in wrong orientation" },
+    { "type": "header", "content": "Messages" },
+    { "type": "text", "id": "landscape_message", "label": "Landscape Message", "default": "Please rotate your device to landscape" },
+    { "type": "text", "id": "portrait_message", "label": "Portrait Message", "default": "Please hold your device upright" },
+    { "type": "checkbox", "id": "show_dismiss_button", "label": "Show Dismiss Button", "default": true },
+    { "type": "text", "id": "dismiss_button_text", "label": "Dismiss Button Text", "default": "Continue Anyway" }
+  ]
+}
+{% endschema %}

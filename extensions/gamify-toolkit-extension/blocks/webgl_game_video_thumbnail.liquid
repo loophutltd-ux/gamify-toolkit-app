@@ -1,0 +1,140 @@
+{% comment %}
+  WebGL Game Video Thumbnail Block - Companion block for video thumbnail overlay
+  Use this with the main WebGL Game block to add video thumbnails instead of static images
+{% endcomment %}
+
+<style id="video-thumbnail-{{ block.id }}">
+  .play-overlay[data-game-id="{{ block.settings.target_game_id }}"] {
+    position: relative;
+    overflow: hidden;
+  }
+
+  .play-overlay[data-game-id="{{ block.settings.target_game_id }}"] .thumbnail-video-custom {
+    position: absolute !important;
+    top: 0 !important;
+    left: 0 !important;
+    width: 100% !important;
+    height: 100% !important;
+    object-fit: cover !important;
+    z-index: 1 !important;
+  }
+
+  .play-overlay[data-game-id="{{ block.settings.target_game_id }}"] > div {
+    position: relative;
+    z-index: 2;
+  }
+</style>
+
+<script>
+(function() {
+  const targetGameId = '{{ block.settings.target_game_id }}';
+  const videoAutoplay = {{ block.settings.video_autoplay | json }};
+  
+  if (!targetGameId) return;
+
+  // Find the target game overlay
+  function findAndEnhanceOverlay() {
+    const overlays = document.querySelectorAll('.play-overlay');
+    overlays.forEach(function(overlay) {
+      const wrapper = overlay.closest('.game-wrapper');
+      if (!wrapper) return;
+      
+      const iframe = wrapper.querySelector('iframe');
+      if (!iframe) return;
+      
+      const src = iframe.getAttribute('data-src') || iframe.src;
+      if (!src || !src.includes(targetGameId)) return;
+      
+      // Mark this overlay
+      overlay.setAttribute('data-game-id', targetGameId);
+      
+      // Check if video already added
+      if (overlay.querySelector('.thumbnail-video-custom')) return;
+      
+      {% if block.settings.thumbnail_video %}
+        // Create and inject video element
+        const video = document.createElement('video');
+        video.className = 'thumbnail-video-custom';
+        video.loop = true;
+        video.muted = true;
+        video.playsInline = true;
+        
+        {% if block.settings.video_autoplay %}
+          video.autoplay = true;
+        {% endif %}
+        
+        // Add video sources
+        {% for source in block.settings.thumbnail_video.sources %}
+          const source{{ forloop.index }} = document.createElement('source');
+          source{{ forloop.index }}.src = '{{ source.url }}';
+          source{{ forloop.index }}.type = '{{ source.mime_type }}';
+          video.appendChild(source{{ forloop.index }});
+        {% endfor %}
+        
+        // Insert video before other content
+        overlay.insertBefore(video, overlay.firstChild);
+        
+        {% unless block.settings.video_autoplay %}
+          // Play on hover if not autoplay
+          overlay.addEventListener('mouseenter', function() {
+            video.play();
+          });
+          overlay.addEventListener('mouseleave', function() {
+            video.pause();
+            video.currentTime = 0;
+          });
+        {% endunless %}
+      {% endif %}
+      
+      {% if block.settings.external_video_url != blank %}
+        // Or use external video URL
+        const video = document.createElement('video');
+        video.className = 'thumbnail-video-custom';
+        video.src = '{{ block.settings.external_video_url }}';
+        video.loop = true;
+        video.muted = true;
+        video.playsInline = true;
+        
+        {% if block.settings.video_autoplay %}
+          video.autoplay = true;
+        {% endif %}
+        
+        overlay.insertBefore(video, overlay.firstChild);
+        
+        {% unless block.settings.video_autoplay %}
+          overlay.addEventListener('mouseenter', function() {
+            video.play();
+          });
+          overlay.addEventListener('mouseleave', function() {
+            video.pause();
+            video.currentTime = 0;
+          });
+        {% endunless %}
+      {% endif %}
+    });
+  }
+
+  // Run on load and after a short delay
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', findAndEnhanceOverlay);
+  } else {
+    findAndEnhanceOverlay();
+  }
+  setTimeout(findAndEnhanceOverlay, 500);
+})();
+</script>
+
+{% schema %}
+{
+  "name": "Game Video Thumbnail",
+  "target": "section",
+  "settings": [
+    { "type": "header", "content": "Target Game" },
+    { "type": "text", "id": "target_game_id", "label": "Game ID or URL Fragment", "info": "Enter a unique identifier from your game URL" },
+    { "type": "header", "content": "Video Settings" },
+    { "type": "video", "id": "thumbnail_video", "label": "Upload Video Thumbnail", "info": "Upload a video file to use as animated thumbnail" },
+    { "type": "url", "id": "external_video_url", "label": "Or External Video URL", "info": "Use an external video URL instead of uploading" },
+    { "type": "checkbox", "id": "video_autoplay", "label": "Autoplay Video", "default": true, "info": "If disabled, video plays on hover" }
+  ]
+}
+{% endschema %}

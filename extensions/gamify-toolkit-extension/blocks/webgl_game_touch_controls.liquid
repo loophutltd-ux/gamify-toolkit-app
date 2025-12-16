@@ -1,0 +1,245 @@
+{% comment %}
+  WebGL Game Touch Controls Block - Companion block for mobile touch controls
+  Use this with the main WebGL Game block to add on-screen mobile controls
+{% endcomment %}
+
+<!-- Touch Controls Container -->
+<div 
+  class="touch-controls-overlay" 
+  id="touch-controls-{{ block.id }}"
+  data-game-id="{{ block.settings.target_game_id }}"
+  style="display: none;
+         position: fixed;
+         top: 0;
+         left: 0;
+         width: 100%;
+         height: 100%;
+         z-index: 9999;
+         pointer-events: none;">
+  <!-- Controls will be injected by JavaScript -->
+</div>
+
+<style>
+  .touch-control {
+    position: absolute;
+    pointer-events: auto;
+    user-select: none;
+    -webkit-user-select: none;
+    touch-action: none;
+  }
+
+  .touch-joystick {
+    width: 120px;
+    height: 120px;
+    background: rgba(255, 255, 255, 0.2);
+    border: 2px solid rgba(255, 255, 255, 0.5);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .touch-joystick-knob {
+    width: 50px;
+    height: 50px;
+    background: rgba(255, 255, 255, 0.6);
+    border-radius: 50%;
+    transition: transform 0.1s;
+  }
+
+  .touch-button {
+    min-width: 60px;
+    min-height: 60px;
+    background: {{ block.settings.button_color }};
+    color: {{ block.settings.button_text_color }};
+    border: 2px solid rgba(255, 255, 255, 0.5);
+    {% if block.settings.button_shape == 'circle' %}
+      border-radius: 50%;
+    {% else %}
+      border-radius: 10px;
+    {% endif %}
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: bold;
+    font-size: 16px;
+    padding: 10px;
+  }
+
+  .touch-button:active {
+    background: {{ block.settings.button_active_color }};
+    transform: scale(0.95);
+  }
+</style>
+
+<script>
+(function() {
+  const controlsOverlay = document.getElementById('touch-controls-{{ block.id }}');
+  const targetGameId = '{{ block.settings.target_game_id }}';
+  const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+  
+  if (!controlsOverlay || !targetGameId || !isMobile) return;
+
+  // Basic control configuration
+  const controls = [
+    {% if block.settings.show_left_joystick %}
+    {
+      type: 'joystick',
+      id: 'left-joystick',
+      position: { bottom: '20px', left: '20px' },
+      label: ''
+    },
+    {% endif %}
+    {% if block.settings.show_action_button %}
+    {
+      type: 'button',
+      id: 'action-btn',
+      position: { bottom: '20px', right: '20px' },
+      label: '{{ block.settings.action_button_label }}'
+    },
+    {% endif %}
+    {% if block.settings.show_jump_button %}
+    {
+      type: 'button',
+      id: 'jump-btn',
+      position: { bottom: '100px', right: '20px' },
+      label: '{{ block.settings.jump_button_label }}'
+    }
+    {% endif %}
+  ];
+
+  function createJoystick(config) {
+    const joystick = document.createElement('div');
+    joystick.className = 'touch-control touch-joystick';
+    Object.assign(joystick.style, config.position);
+    
+    const knob = document.createElement('div');
+    knob.className = 'touch-joystick-knob';
+    joystick.appendChild(knob);
+    
+    let active = false;
+    let startX = 0, startY = 0;
+    
+    joystick.addEventListener('touchstart', function(e) {
+      active = true;
+      const touch = e.touches[0];
+      const rect = joystick.getBoundingClientRect();
+      startX = rect.left + rect.width / 2;
+      startY = rect.top + rect.height / 2;
+    });
+    
+    joystick.addEventListener('touchmove', function(e) {
+      if (!active) return;
+      e.preventDefault();
+      const touch = e.touches[0];
+      const deltaX = touch.clientX - startX;
+      const deltaY = touch.clientY - startY;
+      const distance = Math.min(35, Math.sqrt(deltaX * deltaX + deltaY * deltaY));
+      const angle = Math.atan2(deltaY, deltaX);
+      const x = distance * Math.cos(angle);
+      const y = distance * Math.sin(angle);
+      knob.style.transform = `translate(${x}px, ${y}px)`;
+      
+      // Dispatch custom event for game to listen to
+      window.dispatchEvent(new CustomEvent('gameJoystick', {
+        detail: { x: x / 35, y: y / 35, id: config.id }
+      }));
+    });
+    
+    joystick.addEventListener('touchend', function() {
+      active = false;
+      knob.style.transform = 'translate(0, 0)';
+      window.dispatchEvent(new CustomEvent('gameJoystick', {
+        detail: { x: 0, y: 0, id: config.id }
+      }));
+    });
+    
+    return joystick;
+  }
+
+  function createButton(config) {
+    const button = document.createElement('button');
+    button.className = 'touch-control touch-button';
+    button.textContent = config.label;
+    Object.assign(button.style, config.position);
+    
+    button.addEventListener('touchstart', function(e) {
+      e.preventDefault();
+      window.dispatchEvent(new CustomEvent('gameButton', {
+        detail: { action: 'press', id: config.id }
+      }));
+    });
+    
+    button.addEventListener('touchend', function(e) {
+      e.preventDefault();
+      window.dispatchEvent(new CustomEvent('gameButton', {
+        detail: { action: 'release', id: config.id }
+      }));
+    });
+    
+    return button;
+  }
+
+  function showControls() {
+    if (document.fullscreenElement || document.webkitFullscreenElement) {
+      controlsOverlay.style.display = 'block';
+    }
+  }
+
+  function hideControls() {
+    controlsOverlay.style.display = 'none';
+  }
+
+  // Render controls
+  controls.forEach(function(config) {
+    let control;
+    if (config.type === 'joystick') {
+      control = createJoystick(config);
+    } else if (config.type === 'button') {
+      control = createButton(config);
+    }
+    if (control) {
+      controlsOverlay.appendChild(control);
+    }
+  });
+
+  // Show/hide based on fullscreen
+  document.addEventListener('fullscreenchange', function() {
+    if (document.fullscreenElement) {
+      showControls();
+    } else {
+      hideControls();
+    }
+  });
+
+  document.addEventListener('webkitfullscreenchange', function() {
+    if (document.webkitFullscreenElement) {
+      showControls();
+    } else {
+      hideControls();
+    }
+  });
+})();
+</script>
+
+{% schema %}
+{
+  "name": "Game Touch Controls",
+  "target": "section",
+  "settings": [
+    { "type": "header", "content": "Target Game" },
+    { "type": "text", "id": "target_game_id", "label": "Game ID or URL Fragment", "info": "Enter a unique identifier from your game URL" },
+    { "type": "header", "content": "Controls" },
+    { "type": "checkbox", "id": "show_left_joystick", "label": "Show Left Joystick", "default": true },
+    { "type": "checkbox", "id": "show_action_button", "label": "Show Action Button", "default": true },
+    { "type": "text", "id": "action_button_label", "label": "Action Button Label", "default": "A" },
+    { "type": "checkbox", "id": "show_jump_button", "label": "Show Jump Button", "default": false },
+    { "type": "text", "id": "jump_button_label", "label": "Jump Button Label", "default": "B" },
+    { "type": "header", "content": "Button Styling" },
+    { "type": "select", "id": "button_shape", "label": "Button Shape", "options": [{"value": "circle", "label": "Circle"}, {"value": "rounded", "label": "Rounded Square"}], "default": "circle" },
+    { "type": "color", "id": "button_color", "label": "Button Color", "default": "rgba(255, 255, 255, 0.3)" },
+    { "type": "color", "id": "button_active_color", "label": "Button Active Color", "default": "rgba(255, 255, 255, 0.6)" },
+    { "type": "color", "id": "button_text_color", "label": "Button Text Color", "default": "#ffffff" }
+  ]
+}
+{% endschema %}
